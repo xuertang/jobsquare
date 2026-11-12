@@ -15,10 +15,21 @@
 // and prints the command to run or test it.
 
 import { cpSync, existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
-import { dirname, join, relative, resolve, sep } from "node:path";
+import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const REPO = resolve(ROOT, "..", "..");
+
+// Print the "next" command the way the caller would have to type it: `./run foo` for
+// someone already sitting in apps/prep, `./prep run foo` from the repo root. A hint that
+// only works from a directory you aren't in is worse than no hint.
+const inPrep = process.cwd() === ROOT;
+const rootCli = () => {
+  const rel = relative(process.cwd(), join(REPO, "prep"));
+  return rel.startsWith(".") ? rel : `./${rel}`;
+};
+const cli = (cmd) => (inPrep ? `./${cmd}` : `${rootCli()} ${cmd}`);
 
 // `group` means the type is filed under a subfolder — a pattern for algo, a track for
 // system design. Valid values are read off the directories that already exist, so adding
@@ -28,16 +39,21 @@ const TYPES = {
     template: "fe-react-ts",
     jsTemplate: "fe-react",
     dest: "src/fe/react",
-    run: (rel, name) => `./run ${name}`,
+    run: (rel, name) => cli(`run ${name}`),
   },
-  ui: { template: "fe-ui", dest: "src/fe/ui", run: (rel, name) => `./run ${name}` },
-  js: { template: "fe-js", dest: "src/fe/js", run: () => `pnpm test` },
-  algo: { template: "algo", dest: "src/algo", group: "pattern", run: (rel) => `pytest ${rel}` },
-  ds: { template: "ds", dest: "src/ds", run: (rel) => `pytest ${rel}` },
+  ui: { template: "fe-ui", dest: "src/fe/ui", run: (rel, name) => cli(`run ${name}`) },
+  js: { template: "fe-js", dest: "src/fe/js", run: () => (inPrep ? "pnpm test" : cli("vitest")) },
+  algo: {
+    template: "algo",
+    dest: "src/algo",
+    group: "pattern",
+    run: (rel, name) => cli(`pytest ${name}`),
+  },
+  ds: { template: "ds", dest: "src/ds", run: (rel, name) => cli(`pytest ${name}`) },
   codesignal: {
     template: "codesignal",
     dest: "src/codesignal",
-    run: (rel) => `pytest ${rel}`,
+    run: (rel, name) => cli(`pytest ${name}`),
   },
   system: { template: "system", dest: "src/system", group: "track", run: () => null },
 };
@@ -174,7 +190,10 @@ if (existsSync(destDir) && statSync(destDir).isDirectory() && readdirSync(destDi
   fail(`${relative(ROOT, destDir)} already exists and isn't empty — refusing to overwrite.`);
 }
 
-cpSync(templateDir, destDir, { recursive: true });
+// Templates are runnable in place (`./pytest _templates/codesignal`), which leaves
+// caches next to the files. A blind recursive copy carries them into the new problem.
+const JUNK = new Set(["__pycache__", ".pytest_cache", ".DS_Store", "node_modules"]);
+cpSync(templateDir, destDir, { recursive: true, filter: (src) => !JUNK.has(basename(src)) });
 rewrite(destDir, titleize(name), pascalize(name));
 
 const rel = relative(ROOT, destDir);

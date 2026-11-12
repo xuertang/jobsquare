@@ -1,8 +1,166 @@
+<html lang="en">
+<head>
+  <style>
+    :root {
+      --gap: 12px;
+      --border: #d7d7dd;
+      --danger: #c0392b;
+      --muted: #6b6b76;
+    }
+    .app { max-width: 560px; margin: 0 auto; padding: 24px; font-family: system-ui, sans-serif; }
+    .add-form { display: flex; gap: var(--gap); align-items: flex-end; flex-wrap: wrap; }
+    .field { display: flex; flex-direction: column; gap: 4px; flex: 1 1 160px; }
+    .error { color: var(--danger); min-height: 1.2em; margin: 8px 0; }
+    .list { list-style: none; padding: 0; margin: 16px 0; }
+    .row { display: flex; align-items: center; gap: var(--gap); padding: 8px 0; border-bottom: 1px solid var(--border); }
+    .row__name { flex: 1; }
+    .row__price { color: var(--muted); font-variant-numeric: tabular-nums; }
+    .empty { color: var(--muted); font-style: italic; }
+    .summary { display: flex; justify-content: space-between; padding-top: 12px; }
+    button:focus-visible, input:focus-visible { outline: 2px solid #3b82f6; outline-offset: 2px; }
+    @media (max-width: 480px) { .add-form { flex-direction: column; align-items: stretch; } }
+  </style>
+  <title>WishList</title>
+</head>
+<body>
 <main class="app">
   <h1>Wishlist</h1>
 
-  <form></form>
-  <script></script>
+  <form id="add-form" class="add-form" novalidate>
+    <div class="field">
+      <label for="name">Item name</label>
+      <input id="name" name="name" type="text" autocomplete="off" aria-describedby="form-error"/>
+    </div>
 
-  <style></style>
+    <div class="field">
+      <label for="price">Price</label>
+      <input id="price" name="price" type="text" inputmode="numeric" autocomplete="off" aria-describedby="form-error"/>
+    </div>
+    <button type="submit">Submit</button>
+  </form>
+
+  <p id="form-error" class="error" role="alert" aria-live="polite"></p>
+
+  <ul id="list" class="list" aria-label="Wishlist Items"></ul>
+  <p id="empty" class="empty" hidden>Nothing here yet</p>
+  <footer class="summary" aria-live="polite">
+    <span id="count"></span>
+    <strong id="total"></strong>
+  </footer>
+
 </main>
+
+
+<script>
+  const formEl  = document.querySelector('#add-form');
+  const nameEl  = document.querySelector('#name');
+  const priceEl = document.querySelector('#price');
+  const errorEl = document.querySelector('#form-error');
+  const listEl  = document.querySelector('#list');
+  const emptyEl = document.querySelector('#empty');
+  const countEl = document.querySelector('#count');
+  const totalEl = document.querySelector('#total');
+
+  const fmt = new Intl.NumberFormat('en-US');
+
+  let state = { items: [] };
+
+  function setState(next) {
+    state = next;
+    render();
+  }
+
+  // --- derived ---------------------------------------------------------------
+  const selectCount = (s) => s.items.length;
+  const selectTotal = (s) => s.items.reduce((sum, i) => sum + i.price, 0);
+
+  // --- validation ------------------------------------------------------------
+  function validate({ name, price }) {
+    if (!name) return 'Item name is required.';
+    if (!price) return 'Price is required.';
+    if (!/^\d+$/.test(price)) return 'Price must be a whole number.';
+    if (Number(price) <= 0) return 'Price must be greater than zero.';
+    if (state.items.some(i => i.name.toLowerCase() === name.toLowerCase()))
+      return `"${name}" is already on your wishlist.`;
+    return null;
+  }
+
+  function showError(msg) {
+    errorEl.textContent = msg;
+    nameEl.setAttribute('aria-invalid', 'true');
+  }
+  function clearError() {
+    errorEl.textContent = '';
+    nameEl.removeAttribute('aria-invalid');
+  }
+
+  // --- render ----------------------------------------------------------------
+  function render() {
+    listEl.replaceChildren(...state.items.map(itemRow));
+
+    emptyEl.hidden = state.items.length > 0;
+
+    const n = selectCount(state);
+    countEl.textContent = `${n} ${n === 1 ? 'item' : 'items'}`;
+    totalEl.textContent = `${fmt.format(selectTotal(state))} Robux`;
+  }
+
+  function itemRow(item) {
+    const li = document.createElement('li');
+    li.className = 'row';
+    li.dataset.id = item.id;
+
+    const name = document.createElement('span');
+    name.className = 'row__name';
+    name.textContent = item.name;          // textContent, never innerHTML
+
+    const price = document.createElement('span');
+    price.className = 'row__price';
+    price.textContent = `${fmt.format(item.price)} R$`;
+
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.dataset.action = 'remove';
+    remove.textContent = '×';
+    remove.setAttribute('aria-label', `Remove ${item.name}`);
+
+    li.append(name, price, remove);
+    return li;
+  }
+
+  // --- events ----------------------------------------------------------------
+  formEl.addEventListener('submit', (e) => {
+    e.preventDefault();                    // this also gives us Enter-to-submit free
+    const name  = nameEl.value.trim();
+    const price = priceEl.value.trim();
+
+    const err = validate({ name, price });
+    if (err) return showError(err);
+
+    clearError();
+    setState({ ...state, items: [...state.items, {
+        id: crypto.randomUUID(),
+        name,
+        price: Number(price),
+      }]});
+
+    formEl.reset();
+    nameEl.focus();                        // keep the keyboard flow going
+  });
+
+  // one delegated listener instead of N
+  listEl.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-action="remove"]');
+    if (!btn) return;
+    const id = btn.closest('.row').dataset.id;
+    setState({ ...state, items: state.items.filter(i => i.id !== id) });
+  });
+
+  // clear the error as soon as the user starts fixing it
+  formEl.addEventListener('input', clearError);
+
+  render();
+</script>
+</body>
+</html>
+

@@ -18,9 +18,23 @@ src/
     backend/     classic distributed system design
     frontend/    FE system design (feed, autocomplete, design system, offline)
 _templates/      skeletons: algo, ds, codesignal, fe-js, fe-ui, fe-react, fe-react-ts, system
-scripts/         ./new (scaffold a problem) and ./run (dev server)
+scripts/         ./new (scaffold), ./run (dev server), ./pytest (Python problems)
 notes/           cross-cutting cheatsheets (complexity, patterns, behavioral stories)
 ```
+
+## Running it from the repo root
+
+Every command here works from `apps/prep`, and the repo root has a `./prep` forwarder so
+you don't have to `cd` first. These pairs are the same command:
+
+```sh
+./prep new codesignal parking-lot     cd apps/prep && ./new codesignal parking-lot
+./prep run wishlist                   cd apps/prep && ./run wishlist
+./prep pytest ledger -m level1        cd apps/prep && ./pytest ledger -m level1
+```
+
+The rest of this README uses the short form. `./prep` with no arguments lists what it
+takes.
 
 ## Conventions
 
@@ -66,12 +80,42 @@ on the fly, and where a folder has both `App.tsx` and `App.jsx` the typed one wi
 ```sh
 npm run typecheck    # tsc --noEmit across src/ and _templates/
 npm test             # vitest, for the src/fe/js utility problems
-pytest               # from inside any Python problem folder
 ```
 
 Note that `npm run typecheck` type-checks but never emits — vite does the transform, so
 type errors never block the dev server. That's deliberate: a red type error shouldn't
 stop you mid-drill, but you should see it before you call a problem done.
+
+## Running the Python problems
+
+```sh
+./pytest                     # every problem that has tests
+./pytest ledger              # fuzzy match on folder name, exact match wins
+./pytest codesignal          # every problem whose path matches, all of codesignal/
+./pytest ledger -m level1    # anything it doesn't recognise goes through to pytest
+./pytest --list
+```
+
+Each problem folder is its own pytest process, with the working directory set to that
+folder. One pytest across the whole tree cannot work: every problem names its tests
+`test_solution.py` and imports a bare `solution`, so pytest dies on `import file
+mismatch` and reads the wrong `pytest.ini`. Running from inside the
+folder is also how you'd do it by hand, so each problem's own `markers` and `testpaths`
+apply unchanged, and `pytest` on its own inside a folder still works exactly as before.
+
+Sweeping several problems prints a per-folder header and a pass/fail summary, and exits
+non-zero if any of them failed. A folder with no tests collected is reported separately
+rather than counted as a pass.
+
+The interpreter is the repo venv (`.venv/bin/python`) when there is one, otherwise
+`python3`; `PREP_PYTHON=/path/to/python` overrides. No activated shell needed either way.
+
+For the CodeSignal problems, `ICF_IMPL` picks which file gets tested: the reference
+`solution.py` by default, or your own cold attempt:
+
+```sh
+ICF_IMPL=attempt ./pytest ledger -m level1
+```
 
 ## Adding a problem
 

@@ -1,0 +1,19 @@
+{
+  "id": "jobops",
+  "name": "Jobops",
+  "description": "Add Jobops tools to OpenClaw.",
+  "version": "0.1.0",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  },
+  "activation": {
+    "onStartup": true
+  },
+  "contracts": {
+    "tools": [
+      "echo"
+    ]
+  }
+}

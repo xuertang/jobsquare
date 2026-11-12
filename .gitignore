@@ -8,7 +8,7 @@ __pycache__
 .pytest_cache/
 .venv/
 
-# --- node (prep/, gongzuo/) ---
+# --- node (prep/, browser/) ---
 node_modules/
 dist/
 .vite/
@@ -17,17 +17,27 @@ dist/
 gongzuo.zip
 
 # --- chrome extension signing material: NEVER commit ---
-# dist.pem is the private key that publishes gongzuo; dist.crx is the signed
+# dist.pem is the private key that publishes browser; dist.crx is the signed
 # package. Both live only in the original repo, outside version control.
 *.pem
 *.crx
 
 # --- personal data (not this repo's business) ---
-# unanchored on purpose: they live under apps/jobsquare/ post-monorepo
+# unanchored on purpose: they live under apps/job-ops/ post-monorepo
 **/config/profile.yml
+apply-profile.json
 cv.md
 output/
 reports/
 interview-prep/
 writing-samples/
 voice-dna.md
+
+# --- apps/platform: database, resumes, screenshots, browser profile ---
+apps/platform/data/
+apps/platform/.env
+apps/platform/.worker.env
+
+.claude-flow/
+.swarm/
+ruvector.db

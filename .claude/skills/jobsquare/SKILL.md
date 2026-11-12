@@ -1,5 +1,5 @@
 ---
-name: jobsquare
+name: job-ops
 description: AI job search command center -- evaluate offers, generate CVs, scan portals, track applications
 arguments: mode
 user_invocable: true
@@ -127,8 +127,8 @@ into the worker prompt:
 ```python
 Agent(
   subagent_type="general-purpose",
-  prompt="[output language directive]\n\n[content of apps/jobsquare/modes/_shared.md]\n\n[content of apps/jobsquare/modes/_profile.md if exists]\n\n[content of apps/jobsquare/modes/_custom.md if exists]\n\n[content of apps/jobsquare/modes/{mode}.md]\n\n[invocation-specific data]",
-  description="jobsquare {mode}"
+  prompt="[output language directive]\n\n[content of apps/job-ops/modes/_shared.md]\n\n[content of apps/job-ops/modes/_profile.md if exists]\n\n[content of apps/job-ops/modes/_custom.md if exists]\n\n[content of apps/job-ops/modes/{mode}.md]\n\n[invocation-specific data]",
+  description="job-ops {mode}"
 )
 ```
 

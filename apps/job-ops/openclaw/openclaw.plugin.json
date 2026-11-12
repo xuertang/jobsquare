@@ -1,0 +1,63 @@
+{
+  "id": "jobops",
+  "name": "JobOps Pipeline",
+  "description": "Work the jobsquare application queue: list pending roles, read eval reports, prepare tailored CV kits, and record applied/skipped status. Never fills or submits applications.",
+  "version": "0.1.0",
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "repoRoot": {
+        "type": "string",
+        "description": "Absolute path to the jobsquare checkout."
+      },
+      "python": {
+        "type": "string",
+        "description": "Python interpreter for agent.py (default: {repoRoot}/.venv/bin/python)."
+      },
+      "prepareTimeoutMs": {
+        "type": "number",
+        "description": "Timeout for jobops_prepare runs (default 900000 = 15 min)."
+      },
+      "profilePath": {
+        "type": "string",
+        "description": "Apply-profile JSON for jobops_fill (default {repoRoot}/apps/job-ops/config/apply-profile.json)."
+      },
+      "chromePath": {
+        "type": "string",
+        "description": "Chrome binary for jobops_fill (default the macOS app path)."
+      },
+      "chromeProfileDir": {
+        "type": "string",
+        "description": "Dedicated Chrome user-data-dir for fills (default ~/.openclaw/jobops-chrome). ATS logins persist here."
+      },
+      "cdpPort": {
+        "type": "number",
+        "description": "DevTools port for the managed Chrome (default 18999)."
+      }
+    }
+  },
+  "activation": {
+    "onStartup": true
+  },
+  "contracts": {
+    "tools": [
+      "jobops_pending",
+      "jobops_report",
+      "jobops_prepare",
+      "jobops_fill",
+      "jobops_autopilot",
+      "jobops_mark"
+    ]
+  },
+  "toolMetadata": {
+    "jobops_prepare": {
+      "optional": true
+    },
+    "jobops_fill": {
+      "optional": true
+    },
+    "jobops_autopilot": {
+      "optional": true
+    }
+  }
+}

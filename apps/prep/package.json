@@ -2,6 +2,7 @@
   "name": "prep",
   "scripts": {
     "test": "vitest run",
+    "pytest": "node scripts/pytest.mjs",
     "dev": "node scripts/run.mjs",
     "list": "node scripts/run.mjs --list",
     "typecheck": "tsc --noEmit",

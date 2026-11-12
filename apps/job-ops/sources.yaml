@@ -1,0 +1,402 @@
+
+# Each source = one company's job board on a given ATS platform.
+# The `company` value is the slug in that ATS's public URL.
+#
+# How to find the slug:
+#   Greenhouse      job-boards.greenhouse.io/<company>          -> company
+#   Lever           jobs.lever.co/<company>                     -> company
+#   Ashby           jobs.ashbyhq.com/<company>                  -> company
+#   SmartRecruiters jobs.smartrecruiters.com/<company>          -> company
+#   Recruitee       <company>.recruitee.com                     -> company
+#   Workable        apply.workable.com/<company> (or <company>.workable.com) -> company
+#
+# Workday is different — it needs host/tenant/site, not a single slug.
+# From the public career URL:
+#   https://nvidia.wd5.myworkdayjobs.com/en-US/NVIDIAExternalCareerSite
+#     host=nvidia.wd5.myworkdayjobs.com  tenant=nvidia  site=NVIDIAExternalCareerSite
+#
+# Google is bespoke (no shared ATS, no slug). It has no documented JSON API, so
+# the fetcher paginates the public results page and parses its server-rendered
+# data. The global board is thousands of roles — narrow it server-side with
+# `query` (and optionally `location`) rather than pulling everything:
+#   - { ats: google, query: "software engineer", location: "United States" }
+#
+# (Slugs below are placeholders — swap in the boards you actually track.)
+
+db: jobs.db
+concurrency: 8
+
+sources:
+  # ---- Big Tech (bespoke careers sites) ----
+  - { ats: google,    query: "software engineer", location: "United States" }
+  - { ats: apple,     query: "software engineer", location: united-states-USA }   # hydration-blob scrape; real post dates
+  - { ats: meta,      query: "software engineer" }   # whole board in 1 GraphQL call
+  - { ats: microsoft, query: "software engineer" }   # Phenom JSON API; real post dates
+  - { ats: netflix,   query: "software engineer" }   # Eightfold API on explore.jobs.netflix.net
+  - { ats: amazon,    query: "software engineer" }   # public amazon.jobs JSON API
+  - { ats: bytedance, query: "software engineer" }   # joinbytedance.com supplier API; no post dates
+  - { ats: tiktok,    query: "software engineer" }   # lifeattiktok.com supplier API; no post dates
+  - { ats: linkedin,  company: linkedin, company_id: 1337, query: "software engineer" }   # corporate roles via public jobs-guest endpoint; real dates; rate-limit-sensitive
+  - { ats: phenom,    company: adobe, host: careers.adobe.com, query: "software engineer" }   # Phenom; real post dates
+  # Tesla's own careers site (tesla.com/cua-api) is Akamai-walled — 403 to
+  # every server-side client incl. the pipeline's httpx (confirmed 2026-07-31).
+  # Their LinkedIn postings are the fetchable subset:
+  - { ats: linkedin,  company: tesla, company_id: 15564, query: "software engineer" }
+  # DocuSign careers is iCIMS, which serves only an Angular shell server-side
+  # (every /jobs/search route returns a 145-byte stub or the empty SPA host).
+  # Verified 2026-08-13 — LinkedIn is the fetchable subset:
+  - { ats: linkedin,  company: docusign, company_id: 19022, query: "software engineer" }
+  # Qualcomm fronts careers with Eightfold, but its instance is auth-walled
+  # ("Not authorized for PCSX" on every api/apply/v2 call, and careerhub
+  # redirects to Entra SSO). Verified 2026-08-13 — LinkedIn is the way in.
+  # NB: their careers page also exposes f_C=18170099, which returns 0 jobs;
+  # 2017 is the real company id.
+  - { ats: linkedin,  company: qualcomm, company_id: 2017, query: "software engineer" }
+  # X Corp posts very few roles publicly — this is their real board, just thin.
+  - { ats: smartrecruiters, company: X }
+  - { ats: radancy,   company: intuit, host: jobs.intuit.com, query: "software engineer" }   # Radancy attraction site; no post dates
+
+  # ---- Quant / HFT (top total-comp; via levels.fyi leaderboard) ----
+  - { ats: greenhouse, company: janestreet }    # Jane Street
+  - { ats: greenhouse, company: jumptrading }   # Jump Trading
+  - { ats: greenhouse, company: imc }           # IMC Trading
+  - { ats: greenhouse, company: wehrtyou }      # Hudson River Trading (real board, not the talent community)
+  - { ats: eightfold,  company: millennium, host: mlp.eightfold.ai, domain: mlp.com, query: "software engineer" }  # Millennium
+  # Citadel / Citadel Securities: careers site is Cloudflare-walled (403 to any
+  # server-side fetch, re-confirmed 2026-07-15) — no public API; can't be polled.
+  - { ats: deshaw,     company: deshaw }         # D. E. Shaw (bespoke fetcher)
+  - { ats: twosigma,   company: twosigma }       # Two Sigma (bespoke Avature fetcher)
+  - { ats: optiver,    company: optiver }         # Optiver (bespoke JSON API fetcher)
+  - { ats: greenhouse, company: akunacapital }   # Akuna Capital
+  - { ats: greenhouse, company: point72 }             # Point72
+  - { ats: greenhouse, company: drweng }              # DRW
+  - { ats: greenhouse, company: towerresearchcapital }  # Tower Research Capital
+  - { ats: greenhouse, company: squarepointcapital }  # Squarepoint
+  - { ats: greenhouse, company: chicagotrading }      # CTC (Chicago Trading Company)
+  - { ats: greenhouse, company: aqr }                 # AQR Capital
+  - { ats: greenhouse, company: gsacapital }          # GSA Capital
+  - { ats: linkedin,   company: bridgewater, company_id: 11877, query: "software engineer", max_pages: 2 }
+  - { ats: linkedin,   company: sig, company_id: 165964, query: "software engineer", max_pages: 2 }        # Susquehanna (iCIMS careers site is shell-only)
+  - { ats: linkedin,   company: arcesium, company_id: 9498084, query: "software engineer", max_pages: 2 }
+
+  # ---- AI / ML labs ----
+  - { ats: ashby,      company: openai }
+  - { ats: greenhouse, company: anthropic }
+  # Google DeepMind no longer has its own Greenhouse board (404 as of
+  # 2026-09-11); its roles post on Google's careers site, which the
+  # `google` source above already fetches (104 hits for "deepmind").
+  - { ats: ashby,      company: cohere }
+  - { ats: ashby,      company: perplexity }
+  - { ats: greenhouse, company: scaleai }
+  - { ats: ashby,      company: runway }
+  - { ats: ashby,      company: pinecone }
+  - { ats: ashby,      company: deepgram }
+  - { ats: ashby,      company: anyscale }
+  - { ats: ashby,      company: cursor }
+  - { ats: ashby,      company: reflectionai }
+  - { ats: greenhouse, company: labelbox }
+  - { ats: ashby,      company: harvey }        # Harvey AI
+  - { ats: greenhouse, company: otterai }       # Otter.ai (gh:otter is a different company)
+  
+  # ---- Fintech ----
+  - { ats: greenhouse, company: stripe }
+  - { ats: ashby,      company: plaid }        # moved off Lever (board 404s) — verified 2026-08-13
+  - { ats: greenhouse, company: brex }
+  - { ats: ashby,      company: ramp }
+  - { ats: greenhouse, company: coinbase }
+  - { ats: greenhouse, company: robinhood }
+  - { ats: greenhouse, company: chime }
+  - { ats: greenhouse, company: affirm }
+  - { ats: greenhouse, company: sofi }
+  - { ats: greenhouse, company: mercury }
+  - { ats: greenhouse, company: block }
+  - { ats: ashby,      company: marqeta-inc }  # Greenhouse board 404s; Ashby board is "marqeta-inc" — verified 2026-09-11
+  - { ats: greenhouse, company: carta }
+  - { ats: greenhouse, company: kalshi }
+  - { ats: ashby,      company: nubank }       # moved off Greenhouse — verified 2026-08-13
+  - { ats: greenhouse, company: adyen }
+  - { ats: greenhouse, company: ripple }
+  - { ats: ashby,      company: airwallex }
+  - { ats: greenhouse, company: bitgo }
+  - { ats: greenhouse, company: okx }
+  - { ats: greenhouse, company: earnin }
+  - { ats: lever,      company: wealthfront }
+  - { ats: smartrecruiters, company: wise }
+  - ats: workday
+    company: remitly
+    host: remitly.wd5.myworkdayjobs.com
+    tenant: remitly
+    site: Remitly_Careers
+    query: software engineer
+  
+  # ---- Dev tools / infra / data ----
+  - { ats: greenhouse, company: databricks }
+  - { ats: greenhouse, company: gitlab }
+  - { ats: greenhouse, company: vercel }
+  - { ats: greenhouse, company: mongodb }
+  - { ats: greenhouse, company: cloudflare }
+  - { ats: greenhouse, company: datadog }
+  - { ats: greenhouse, company: elastic }
+  - { ats: greenhouse, company: cockroachlabs }
+  - { ats: greenhouse, company: fivetran }
+  # Postman left Greenhouse for Workday (their careers SPA links straight to
+  # postman.wd108.myworkdayjobs.com). Verified 2026-10-02: 34 postings,
+  # matching the count their own page advertises.
+  - ats: workday
+    company: postman
+    host: postman.wd108.myworkdayjobs.com
+    tenant: postman
+    site: careers
+  - { ats: ashby,      company: supabase }
+  - { ats: ashby,      company: render }
+  - { ats: ashby,      company: railway }
+  - { ats: ashby,      company: neon }
+  - { ats: ashby,      company: replit }
+  - { ats: ashby,      company: posthog }
+  - { ats: ashby,      company: hightouch }
+  - { ats: ashby,      company: confluent }
+  - { ats: ashby,      company: sentry }
+  - { ats: greenhouse, company: rubrik }
+  - { ats: greenhouse, company: purestorage }
+  - { ats: greenhouse, company: tanium }
+  - { ats: greenhouse, company: boxinc }              # Box
+  - { ats: linkedin,   company: amd, company_id: 1497, query: "software engineer", max_pages: 2 }           # iCIMS careers site is shell-only; 6624519 on their page is a decoy id
+  - ats: workday
+    company: crowdstrike
+    host: crowdstrike.wd5.myworkdayjobs.com
+    tenant: crowdstrike
+    site: crowdstrikecareers
+    query: software engineer
+  - ats: workday
+    company: salesforce
+    host: salesforce.wd12.myworkdayjobs.com
+    tenant: salesforce
+    site: External_Career_Site
+    query: software engineer
+  
+  # ---- Product / collaboration SaaS ----
+  - { ats: greenhouse, company: figma }
+  - { ats: ashby,      company: notion }
+  - { ats: ashby,      company: linear }
+  - { ats: greenhouse, company: airtable }
+  - { ats: greenhouse, company: asana }
+  - { ats: atlassian }   # left Lever for iCIMS; bespoke fetcher, whole board in 1 GET
+  - { ats: greenhouse, company: intercom }
+  - { ats: ashby,      company: amplitude }    # Greenhouse board 404s; moved to Ashby — verified 2026-10-02
+  - { ats: greenhouse, company: mixpanel }
+  - { ats: greenhouse, company: twilio }
+  # HubSpot has no Greenhouse board any more: "hubspot" went empty (fixed to
+  # "hubspotjobs" 2026-08-13), and "hubspotjobs" now 404s too — every token
+  # tried 404s, and hubspot.com/careers/jobs renders "No jobs are currently
+  # listed" while their engineering page advertises active hiring. So the
+  # board moved somewhere not yet public. LinkedIn carries the real roles.
+  # Re-check for a shared ATS later. Verified 2026-10-12.
+  - { ats: linkedin,  company: hubspot, company_id: 68529, query: "software engineer", max_pages: 2 }
+  - { ats: greenhouse, company: klaviyo }
+  - { ats: ashby,      company: clickup }
+  - { ats: ashby,      company: "Superhuman Platform Inc" }   # Grammarly — merged with Superhuman; one board serves both brands (grammarly GH board is dead)
+  
+  # ---- Consumer / marketplace ----
+  - { ats: greenhouse, company: airbnb }
+  - { ats: greenhouse, company: lyft }
+  - { ats: greenhouse, company: instacart }
+  - { ats: greenhouse, company: pinterest }
+  - { ats: greenhouse, company: reddit }
+  - { ats: greenhouse, company: discord }
+  - { ats: lever,      company: spotify }
+  - { ats: greenhouse, company: twitch }
+  - { ats: greenhouse, company: roblox }
+  - { ats: greenhouse, company: duolingo }
+  - { ats: greenhouse, company: dropbox }
+  - { ats: greenhouse, company: faire }
+  - { ats: greenhouse, company: seatgeek }
+  - { ats: greenhouse, company: nextdoor }
+  - { ats: greenhouse, company: coupang }
+  - { ats: greenhouse, company: stubhubinc }    # StubHub (EU Greenhouse board)
+  - { ats: greenhouse, company: doordashusa }   # DoorDash
+  - { ats: ashby,      company: whatnot }       # posting-api disabled -> hosted-page fallback
+  - { ats: ashby,      company: patreon }
+  - { ats: ashby,      company: thumbtack }
+  - { ats: ashby,      company: miro }
+  - { ats: greenhouse, company: apolloio }            # Apollo.io
+  - { ats: greenhouse, company: attentive }
+  - { ats: greenhouse, company: qualtrics }
+  - { ats: greenhouse, company: moloco }
+  - { ats: greenhouse, company: thetradedesk }        # The Trade Desk
+  - { ats: greenhouse, company: axon }          # Axon (Taser/body cams)
+  - { ats: greenhouse, company: roku }
+  - { ats: greenhouse, company: riotgames }           # Riot Games
+  - { ats: lever,      company: matchgroup }          # Match Group — Tinder/Hinge post here
+  - { ats: workable,   company: smartnews }
+  - { ats: phenom,     company: ebay, host: jobs.ebayinc.com, query: "software engineer" }
+  - ats: workday
+    company: zillow
+    host: zillow.wd5.myworkdayjobs.com
+    tenant: zillow
+    site: Zillow_Group_External
+    query: software engineer
+  - { ats: phenom,     company: yelp,  host: www.yelp.careers,     query: "software engineer" }
+  # Disney's Greenhouse board (job-boards.greenhouse.io/disney) is unfilled
+  # template junk ("MASTER TEMPLATE", "prospecting test") — the real board is
+  # Radancy at jobs.disneycareers.com. Verified 2026-08-13.
+  - { ats: radancy,    company: disney, host: www.disneycareers.com, query: "software engineer" }   # no post dates; jobs.disneycareers.com 301s to this host (2026-09-11)
+  
+  # ---- Security ----
+  - { ats: greenhouse, company: okta }
+  - { ats: ashby,      company: snyk }        # NOTE: board currently empty (posting-api AND hosted page both return 0 postings, checked 2026-08-13) — kept in case it repopulates; re-resolve if it stays dry
+  - { ats: ashby,      company: applied }
+  - { ats: ashby,      company: vanta }
+  - { ats: ashby,      company: snowflake }
+  - { ats: ashby,      company: drata }
+  - { ats: greenhouse, company: abnormalsecurity }
+  - { ats: greenhouse, company: verkada }
+  - { ats: greenhouse, company: zscaler }
+  - { ats: greenhouse, company: checkr }
+  - { ats: greenhouse, company: cribl }
+  
+  # ---- Enterprise / HR / ops / logistics ----
+  - { ats: greenhouse, company: gusto }
+  - { ats: ashby,      company: deel }        # NOTE: board currently empty (posting-api AND hosted page both return 0 postings, checked 2026-08-13) — kept in case it repopulates; re-resolve if it stays dry
+  - { ats: ashby,      company: workos }
+  - { ats: greenhouse, company: justworks }
+  - { ats: greenhouse, company: lattice }
+  - { ats: greenhouse, company: samsara }
+  - { ats: greenhouse, company: smartsheet }
+  - { ats: greenhouse, company: toast }
+  - { ats: greenhouse, company: flexport }
+  - { ats: lever,      company: palantir }
+  - { ats: smartrecruiters, company: ServiceNow }   # ~500 postings; needs the paginated fetcher
+  - { ats: greenhouse, company: upstart }
+  - ats: workday                                 # Workday, the company
+    company: workday
+    host: workday.wd5.myworkdayjobs.com
+    tenant: workday
+    site: Workday
+    query: software engineer
+  
+  # ---- Deep tech / hardware / AV ----
+  - { ats: ashby,      company: skydio }
+  - { ats: greenhouse, company: spacex }
+  - { ats: greenhouse, company: waymo }
+  - { ats: lever,      company: zoox }
+  - { ats: greenhouse, company: andurilindustries }   # Anduril
+  - { ats: linkedin,   company: ponyai, company_id: 18199023, query: "software engineer", max_pages: 2 }    # Pony.ai
+  - { ats: greenhouse, company: nuro }
+  - { ats: greenhouse, company: lucidmotors }
+  - { ats: greenhouse, company: applovin }
+  - { ats: greenhouse, company: formlabs }
+
+  - ats: workday
+    company: nvidia                              # label for output + dedup key
+    host: nvidia.wd5.myworkdayjobs.com
+    tenant: nvidia                               # set explicitly if != host's first label
+    site: NVIDIAExternalCareerSite
+    # locale: en-US                              # optional (default)
+    # page_size: 20                              # optional (Workday caps ~20)
+
+  - ats: workday
+    company: broadcom                              # label for output + dedup key
+    host: broadcom.wd1.myworkdayjobs.com
+    tenant: broadcom                               # set explicitly if != host's first label
+    site: External_Career
+
+  - ats: workday
+    company: zoom
+    host: zoom.wd5.myworkdayjobs.com
+    tenant: zoom
+    site: Zoom
+
+  - ats: workday
+    company: servicetitan
+    host: servicetitan.wd1.myworkdayjobs.com
+    tenant: servicetitan
+    site: ServiceTitan
+
+  - ats: workday
+    company: snap
+    host: snapchat.wd1.myworkdayjobs.com
+    tenant: snapchat
+    site: snap
+
+  # Slack is Salesforce-owned; its board is a site on the Salesforce tenant.
+  - ats: workday
+    company: slack
+    host: salesforce.wd12.myworkdayjobs.com
+    tenant: salesforce
+    site: Slack
+    query: software engineer
+
+  # Palo Alto Networks: jobs.paloaltonetworks.com is a Radancy shell; the
+  # actual postings live in Workday. query narrows server-side (board is
+  # ~1.3k postings without it).
+  - ats: workday
+    company: paloaltonetworks
+    host: paloaltonetworks.wd5.myworkdayjobs.com
+    tenant: paloaltonetworks
+    site: panwexternalcareers
+    query: software engineer
+
+  # Cisco fronts its Workday with Phenom (careers.cisco.com) — Phenom gives
+  # real post dates, so fetch there rather than the dateless Workday API.
+  - { ats: phenom, company: cisco, host: careers.cisco.com, locale: en_global, query: "software engineer" }
+
+  # ---- Wanted but not fetchable (documented so nobody re-chases them) ----
+  # Bloomberg: careers.bloomberg.com sits behind a bot wall ("Are you a
+  #   robot?" / PerimeterX) — every server-side request 403s. 2026-07-15.
+  # Walmart: careers.walmart.com search is a conversational LLM backend
+  #   (pagination literally POSTs "Show me page number 2" to a chat GraphQL
+  #   op with session thread_ids) — no stable public search API. 2026-07-15;
+  #   re-confirmed 2026-07-31: robots.txt Disallows /api + /results, sitemap
+  #   (1.8 MB) carries zero /job/ URLs, and they're not on Workday.
+  # Requested 2026-08-13 but not fetchable yet — no public ATS API found, and
+  #   LinkedIn company ids could not be resolved before the guest endpoint
+  #   began refusing company-page reads. Retry later:
+  #   Blackstone (careers page 403s), Credit Karma (Intuit-owned; no own board),
+  #   Goldman Sachs (higher.gs.com, bespoke), Highspot (403), Moveworks,
+  #   Niantic (Phenom, host unresolved), Rippling, Tencent, Valve (static jobs
+  #   page, no ATS), plus EA, Unity, Avalara and Rokt (ATS is iCIMS/SPA and
+  #   their LinkedIn ids are still unknown).
+  #
+  # Verifying a LinkedIn company_id before adding one: a WRONG id still returns
+  # HTTP 200, but with a ~26-byte empty body and no job cards. Check with
+  #   curl -s ".../jobs-guest/jobs/api/seeMoreJobPostings/search?f_C=<id>&start=0" | wc -c
+  # A good id returns tens of KB. Company pages often expose decoy ids
+  # (qualcomm 18170099, amd 6624519) alongside the real one.
+  # VMware: acquired by Broadcom — its roles post on the existing `broadcom`
+  #   Workday source below, so no separate entry.
+  # Tesla: tesla.com careers (cua-api) is Akamai-walled — 403 to curl AND
+  #   httpx h1/h2 server-side. 2026-07-31. Partial coverage via the linkedin
+  #   source (company_id 15564) above.
+
+filters:
+  # Job is kept only if its title/dept/location matches at least one include
+  # keyword, contains no exclude keyword, and (if set) is in one of locations.
+  max_age_days: 7              # ignore postings older than a week; postings with
+  # an unparseable/empty posted_at are kept
+  include_keywords:
+    - software engineer
+    - backend
+    - full stack
+    - distributed systems
+  exclude_keywords:
+    - intern
+    - manager
+    - principal
+    - staff      # drop if you only want senior-and-below; remove otherwise
+    - india
+    - canada
+    - android
+    - ios
+    - embedded
+    - quantum
+  locations:
+    - Los Angeles
+    - United States
+    - California
+    - US
+    - New York
+    - San Francisco
+    - Sunnyvale
+    - MountainView
+    - San Jose
+    - San Diego

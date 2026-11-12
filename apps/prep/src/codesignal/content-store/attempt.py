@@ -59,3 +59,23 @@ class ContentStore:
             return False
         del self._log[content_id]
         return True
+
+    def find_by_prefix(self, prefix: str) -> list[str]:
+        res = []
+        for content_id, event in self._log.items():
+            if content_id.startswith(prefix):
+                res.append(f"{content_id}({event[-1].size})")
+        return sorted(res)
+
+    def top_n_by_size(self, prefix: str, n: int) -> list[str]:
+        top = []
+        for content_id, event in self._log.items():
+            if content_id.startswith(prefix):
+                top.append([content_id, event])
+        top.sort(key=lambda item: (-item[1][-1].size, item[0]))
+
+        res = []
+        for i in range(min(n, len(top))):
+            content_id, event = top[i]
+            res.append(f"{content_id}({event[-1].size})")
+        return res

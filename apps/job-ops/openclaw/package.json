@@ -1,0 +1,36 @@
+{
+  "name": "openclaw-plugin-jobops",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "plugin:build": "npm run build && npm run build:fill && openclaw plugins build --entry ./dist/index.js",
+    "plugin:validate": "npm run build && npm run build:fill && openclaw plugins validate --entry ./dist/index.js",
+    "test": "vitest run --config ./vitest.config.ts",
+    "build:fill": "esbuild fill/fill-entry.ts --bundle --format=iife --minify --outfile=dist/fill-bundle.js"
+  },
+  "files": [
+    "dist",
+    "openclaw.plugin.json",
+    "README.md"
+  ],
+  "peerDependencies": {
+    "openclaw": ">=2026.5.17"
+  },
+  "dependencies": {
+    "playwright-core": "^1.62.1",
+    "typebox": "^1.1.38"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.1",
+    "openclaw": "latest",
+    "typescript": "^5.9.0",
+    "vitest": "^3.2.0"
+  },
+  "openclaw": {
+    "extensions": [
+      "./dist/index.js"
+    ]
+  }
+}

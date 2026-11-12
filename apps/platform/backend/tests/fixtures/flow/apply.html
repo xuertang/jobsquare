@@ -1,0 +1,25 @@
+<!doctype html>
+<!-- A small working application form for the worker's end-to-end test. Submitting
+     navigates to confirmation.html, as a real ATS does. -->
+<html><head><meta charset="utf-8"><title>Apply: Senior Software Engineer</title></head><body>
+<h1>Senior Software Engineer</h1>
+<form id="application-form">
+  <label for="first_name">First Name *</label><input id="first_name" name="first_name" required>
+  <label for="last_name">Last Name *</label><input id="last_name" name="last_name" required>
+  <label for="email">Email *</label><input id="email" name="email" type="email" required>
+  <label for="resume">Resume/CV</label><input id="resume" name="resume" type="file">
+  <label for="auth">Are you legally authorized to work in the United States?</label>
+  <select id="auth" name="auth"><option value="">Select...</option><option>Yes</option><option>No</option></select>
+  <label for="why">Why do you want to work at Acme?</label><textarea id="why" name="why"></textarea>
+  <label for="gender">Gender</label>
+  <select id="gender" name="gender"><option value="">Select...</option><option>Male</option><option>Female</option></select>
+  <div><input type="checkbox" id="consent" name="consent"><label for="consent">I agree to the privacy policy</label></div>
+  <button type="submit" id="go">Submit application</button>
+</form>
+<script>
+  document.getElementById('application-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    location.href = 'confirmation.html';
+  });
+</script>
+</body></html>

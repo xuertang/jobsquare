@@ -1,0 +1,53 @@
+#!/usr/bin/env sh
+# Interview-prep commands, runnable from the repo root.
+#
+#   ./prep new codesignal parking-lot     scaffold a problem from _templates/
+#   ./prep run wishlist                   dev server for a frontend problem
+#   ./prep pytest ledger -m level1        pytest for a Python problem
+#
+# Thin forwards to apps/prep/<cmd>. Those scripts resolve their own paths, so this only
+# saves you the cd. `cd apps/prep && ./new ...` still works and does the same thing.
+
+set -e
+
+prep="$(cd "$(dirname "$0")" && pwd)/apps/prep"
+
+usage() {
+  cat <<'EOF'
+Usage: ./prep <command> [args]
+
+  new <type> <name>    scaffold a problem from _templates/ (no args lists the types)
+  run [problem]        vite dev server for a frontend problem (no args lists them)
+  pytest [problem]     pytest for the Python problems (no args runs all of them)
+  typecheck            tsc --noEmit across src/ and _templates/
+  vitest               vitest, for the src/fe/js utility problems
+
+Examples:
+
+  ./prep new codesignal parking-lot
+  ./prep new algo two-pointers/two-sum
+  ./prep run react/memory-game
+  ./prep pytest ledger -m level1
+  ./prep pytest --list
+
+EOF
+}
+
+cmd=${1:-}
+if [ $# -gt 0 ]; then shift; fi
+
+case "$cmd" in
+  new) exec "$prep/new" "$@" ;;
+  run) exec "$prep/run" "$@" ;;
+  # `test` because that's what you reach for; `pytest` because that's what it runs.
+  pytest | test) exec "$prep/pytest" "$@" ;;
+  typecheck) cd "$prep" && exec pnpm typecheck "$@" ;;
+  vitest) cd "$prep" && exec pnpm test "$@" ;;
+  "" | -h | --help | help) usage ;;
+  *)
+    echo "Unknown command \"$cmd\"." >&2
+    echo >&2
+    usage >&2
+    exit 1
+    ;;
+esac

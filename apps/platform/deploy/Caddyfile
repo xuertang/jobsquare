@@ -1,0 +1,16 @@
+# HTTPS in front of the dashboard. Caddy gets and renews the certificate for
+# COPILOT_DOMAIN by itself; the domain's DNS must already point at this host
+# and ports 80 and 443 must be reachable.
+{$COPILOT_DOMAIN} {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "no-referrer"
+		# A private tool: keep it out of search engines.
+		X-Robots-Tag "noindex, nofollow"
+		-Server
+	}
+	reverse_proxy dashboard:80
+}

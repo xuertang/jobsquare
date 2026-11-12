@@ -1,0 +1,10 @@
+# Allowlist. The build context is apps/, which also holds personal files
+# (resume, reports, databases): nothing but these paths is ever sent to Docker.
+*
+!platform/backend/requirements.txt
+!platform/backend/copilot
+!job-ops/fetchers.py
+!job-ops/models.py
+!job-ops/notify.py
+!job-ops/sources.yaml
+**/__pycache__

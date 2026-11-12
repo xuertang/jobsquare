@@ -12,9 +12,3 @@ The shape is always the same:
 4. **L4 — History / merge / time travel.** Needs per-entity versioned state.
 
 Budget roughly 20 / 15 / 25 / 20 minutes. Read all four levels before writing anything.
-
-| Problem | Level reached | Last attempt | Confidence |
-| --- | --- | --- | --- |
-| [in-memory](in-memory/) | | | |
-| [ledger](ledger/) | | | |
-| [file-system](file-system/) | | | |

@@ -15,8 +15,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: "3.12" }
-      - run: pip install -r apps/jobsquare/requirements.txt
-      - run: python apps/jobsquare/cli.py --config apps/jobsquare/sources.yaml
+      - run: pip install -r apps/job-ops/requirements.txt
+      - run: python apps/job-ops/cli.py --config apps/job-ops/sources.yaml
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}

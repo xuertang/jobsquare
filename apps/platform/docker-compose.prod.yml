@@ -1,0 +1,65 @@
+# Job Search Copilot on a server: API, dashboard, and Caddy in front for HTTPS.
+#
+# Use deploy/deploy.sh rather than running this by hand: it writes the .env
+# this file reads (domain, secrets, the uid to run as) and sets the password.
+#
+# Only Caddy publishes ports. The API requires a login here: the dashboard
+# signs in with a password, the apply worker on your own machine with a token.
+name: copilot
+
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: platform/backend/Dockerfile
+    user: "${COPILOT_UID:-1000}:${COPILOT_GID:-1000}"   # files in ./data stay yours
+    environment:
+      COPILOT_REQUIRE_AUTH: "1"                          # refuse everything without a login
+      COPILOT_PASSWORD_HASH: ${COPILOT_PASSWORD_HASH:-}
+      COPILOT_SESSION_SECRET: ${COPILOT_SESSION_SECRET:?run deploy/deploy.sh to create .env}
+      COPILOT_WORKER_TOKEN: ${COPILOT_WORKER_TOKEN:?run deploy/deploy.sh to create .env}
+      COPILOT_DASHBOARD_URL: https://${COPILOT_DOMAIN:?set COPILOT_DOMAIN in .env}${COPILOT_URL_PORT:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      COPILOT_MODEL: ${COPILOT_MODEL:-claude-opus-5-5}
+      TZ: ${TZ:-America/Los_Angeles}
+      SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL:-}
+      WEBHOOK_URL: ${WEBHOOK_URL:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      EMAIL_TO: ${EMAIL_TO:-}
+      EMAIL_FROM: ${EMAIL_FROM:-}
+    volumes:
+      - ./data:/data
+    expose:
+      - "8000"
+    restart: unless-stopped
+
+  dashboard:
+    build: ./frontend
+    depends_on:
+      api:
+        condition: service_healthy
+    expose:
+      - "80"
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2
+    depends_on:
+      - dashboard
+    environment:
+      COPILOT_DOMAIN: ${COPILOT_DOMAIN}
+    ports:
+      - "${COPILOT_HTTP_PORT:-80}:80"
+      - "${COPILOT_HTTPS_PORT:-443}:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data            # certificates: keep this volume
+      - caddy_config:/config
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:

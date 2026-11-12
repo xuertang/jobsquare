@@ -1,0 +1,68 @@
+{
+  "firstName": "Alex",
+  "middleName": "",
+  "lastName": "Rivera",
+  "preferredName": "",
+  "email": "alex@example.com",
+  "phone": "+1 (415) 555-0199",
+  "addressLine1": "500 Terry A Francois Blvd",
+  "addressLine2": "",
+  "city": "San Francisco",
+  "state": "California",
+  "zip": "94158",
+  "country": "United States",
+  "linkedin": "https://linkedin.com/in/alexrivera",
+  "github": "https://github.com/alexrivera",
+  "website": "https://alexrivera.dev",
+  "twitter": "",
+  "currentCompany": "Acme Corp",
+  "currentTitle": "Senior Software Engineer",
+  "yearsExperience": "7",
+  "desiredSalary": "",
+  "noticePeriod": "2 weeks",
+  "earliestStartDate": "",
+  "workAuthorized": "yes",
+  "requireSponsorship": "no",
+  "willingToRelocate": "",
+  "remotePreference": "Remote",
+  "gender": "",
+  "pronouns": "",
+  "raceEthnicity": "",
+  "veteranStatus": "",
+  "disabilityStatus": "",
+  "hispanicLatino": "",
+  "coverLetter": "",
+  "summary": "",
+  "howHeard": "LinkedIn",
+  "experience": [
+    {
+      "id": "e1",
+      "company": "Acme Corp",
+      "title": "Senior Software Engineer",
+      "location": "San Francisco, CA",
+      "startDate": "2021-03",
+      "endDate": "Present",
+      "description": "Led the platform team."
+    }
+  ],
+  "education": [
+    {
+      "id": "ed1",
+      "school": "UC Berkeley",
+      "degree": "Bachelor of Science",
+      "field": "Computer Science",
+      "startDate": "2013",
+      "endDate": "2017",
+      "gpa": ""
+    }
+  ],
+  "customAnswers": [
+    {
+      "id": "c1",
+      "keywords": "why, interested, this role",
+      "answer": "Example saved answer — matched against question text by keyword."
+    }
+  ],
+  "resumePath": "",
+  "coverLetterPath": ""
+}

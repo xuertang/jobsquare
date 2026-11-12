@@ -1,0 +1,32 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "copilot-api",
+      "runtimeExecutable": "/Users/richardtang/PycharmProjects/jobsquare/apps/platform/backend/.venv/bin/python",
+      "runtimeArgs": [
+        "-m",
+        "uvicorn",
+        "copilot.main:app",
+        "--app-dir",
+        "/Users/richardtang/PycharmProjects/jobsquare/apps/platform/backend",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "8000"
+      ],
+      "port": 8000
+    },
+    {
+      "name": "copilot-dashboard",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "/Users/richardtang/PycharmProjects/jobsquare/apps/platform/frontend",
+        "run",
+        "dev"
+      ],
+      "port": 5173
+    }
+  ]
+}
