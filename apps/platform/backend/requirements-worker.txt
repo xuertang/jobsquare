@@ -1,0 +1,3 @@
+# Apply worker (host only: it drives a visible browser)
+httpx>=0.27
+playwright>=1.47

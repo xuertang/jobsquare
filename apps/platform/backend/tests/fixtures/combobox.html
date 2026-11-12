@@ -1,0 +1,52 @@
+<!doctype html>
+<!-- Hand-written dropdown widgets that behave like react-select: the menu exists
+     only while open, aria-controls names its listbox, and Enter would submit. -->
+<html><head><meta charset="utf-8"><title>combobox behaviour</title>
+<style>.menu{border:1px solid #999}.opt{padding:4px;cursor:pointer}.control{border:1px solid #999;padding:6px;width:320px}</style>
+</head><body>
+<form id="application-form">
+  <!-- A permanently present, hidden option list (the phone country picker on
+       Greenhouse does this). It must never be read as this dropdown's options. -->
+  <ul style="display:none"><li role="option">Afghanistan +93</li><li role="option">Albania +355</li></ul>
+
+  <div class="field"><label id="degree-label">Degree</label>
+    <div class="select__control control"><div class="select__single-value" id="degree-value"></div>
+      <input id="degree" role="combobox" aria-autocomplete="list" aria-labelledby="degree-label" aria-expanded="false"></div>
+    <div id="degree-menu"></div></div>
+
+  <div class="field"><label id="loc-label">Location (City)</label>
+    <div class="select__control control"><div class="select__single-value" id="loc-value"></div>
+      <input id="loc" role="combobox" aria-autocomplete="list" aria-labelledby="loc-label" aria-expanded="false"></div>
+    <div id="loc-menu"></div></div>
+
+  <button type="submit">Submit application</button>
+</form>
+<script>
+  window.__enter = 0; window.__submits = 0;
+  document.getElementById('application-form').addEventListener('submit', (e) => { window.__submits++; e.preventDefault(); });
+  function widget(id, source) {
+    const input = document.getElementById(id), menu = document.getElementById(id + '-menu');
+    const value = document.getElementById(id + '-value');
+    const close = () => { menu.innerHTML = ''; input.setAttribute('aria-expanded', 'false'); input.removeAttribute('aria-controls'); };
+    const open = async () => {
+      const items = await source(input.value);
+      menu.innerHTML = `<div class="menu" role="listbox" id="${id}-listbox">` + (items.length
+        ? items.map((t) => `<div class="opt select__option" role="option">${t}</div>`).join('')
+        : '<div class="select__menu-notice">No options</div>') + '</div>';
+      input.setAttribute('aria-expanded', 'true'); input.setAttribute('aria-controls', id + '-listbox');
+      menu.querySelectorAll('.opt').forEach((o) => o.addEventListener('click', () => { value.textContent = o.textContent; input.value = ''; close(); }));
+    };
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowDown') open();
+      if (e.key === 'Escape') close();
+      if (e.key === 'Enter') { window.__enter++; document.getElementById('application-form').requestSubmit(); }
+    });
+    input.addEventListener('input', open);
+  }
+  const DEGREES = ["Associate's Degree", "Bachelor's Degree", "Master's Degree", "Doctor of Philosophy (Ph.D.)"];
+  widget('degree', async (q) => DEGREES.filter((d) => d.toLowerCase().includes(q.toLowerCase())));
+  const CITIES = ['Los Angeles, California, United States', 'Los Angeles, Biobio, Chile', 'Los Altos, California, United States'];
+  widget('loc', (q) => new Promise((done) => setTimeout(   // remote search: nothing until you type
+    () => done(q.length < 2 ? [] : CITIES.filter((c) => c.toLowerCase().startsWith(q.toLowerCase()))), 120)));
+</script>
+</body></html>

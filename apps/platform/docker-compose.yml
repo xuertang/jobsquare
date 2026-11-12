@@ -1,0 +1,50 @@
+# Job Search Copilot: API and dashboard in containers, apply worker on the host.
+#
+#   docker compose up --build        dashboard at http://localhost:5173
+#   cd backend && .venv/bin/python -m worker        (separately, on the host)
+#
+# Both ports are published on 127.0.0.1 only, and this file runs the app with
+# no login. To put it on a server, use docker-compose.prod.yml through
+# deploy/deploy.sh: that adds the login and HTTPS.
+services:
+  api:
+    build:
+      context: ..                       # apps/, so the image carries the scraper
+      dockerfile: platform/backend/Dockerfile
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      # Read from your shell or a .env file next to this one. Never stored.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      COPILOT_MODEL: ${COPILOT_MODEL:-claude-opus-5-5}
+      COPILOT_DASHBOARD_URL: http://localhost:5173
+      TZ: ${TZ:-America/Los_Angeles}          # the daily fetch time is local time
+      # Digest channels, all optional (the existing notifier reads these).
+      SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL:-}
+      WEBHOOK_URL: ${WEBHOOK_URL:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      EMAIL_TO: ${EMAIL_TO:-}
+      EMAIL_FROM: ${EMAIL_FROM:-}
+    volumes:
+      # The database, resumes and screenshots. Only this container opens the
+      # SQLite file: the host worker goes through the HTTP API, so WAL never
+      # has two processes on either side of the bind mount.
+      - ./data:/data
+      # The scraper is baked into the image; these mounts lay the live files
+      # over it, so a fetcher fix needs a restart, not a rebuild.
+      - ../job-ops/fetchers.py:/scraper/fetchers.py:ro
+      - ../job-ops/models.py:/scraper/models.py:ro
+      - ../job-ops/notify.py:/scraper/notify.py:ro
+      - ../job-ops/sources.yaml:/scraper/sources.yaml:ro
+    restart: unless-stopped
+
+  dashboard:
+    build: ./frontend
+    ports:
+      - "127.0.0.1:5173:80"
+    depends_on:
+      - api
+    restart: unless-stopped

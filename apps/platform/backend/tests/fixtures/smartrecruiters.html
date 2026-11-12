@@ -1,0 +1,56 @@
+<!doctype html>
+<!-- SYNTHETIC fixture, not a saved snapshot. SmartRecruiters returns HTTP 403 to
+     headless browsers, so the live one-click form could not be captured. This page
+     reproduces the shape that matters to the adapter: fields inside web components
+     with open shadow roots, labels that live on the host element or inside the
+     shadow tree, and a multi-step flow whose screening questions appear later. -->
+<html><head><meta charset="utf-8"><title>smartrecruiters form (synthetic)</title></head><body>
+<main>
+  <oc-personal-information>
+    <spl-input label="First name" required>
+      <template shadowrootmode="open"><label for="in">First name</label><input id="in" type="text" required></template>
+    </spl-input>
+    <spl-input label="Last name" required>
+      <template shadowrootmode="open"><input type="text" required></template>
+    </spl-input>
+    <spl-input label="Email" required>
+      <template shadowrootmode="open"><label for="in">Email</label><input id="in" type="email" required></template>
+    </spl-input>
+    <spl-phone-field>
+      <template shadowrootmode="open"><label for="ph">Phone number</label><input id="ph" type="tel"></template>
+    </spl-phone-field>
+    <spl-input label="LinkedIn">
+      <template shadowrootmode="open"><input type="url"></template>
+    </spl-input>
+  </oc-personal-information>
+  <oc-resume>
+    <template shadowrootmode="open">
+      <div class="field"><div class="field-label">Resume</div><input type="file" accept=".pdf,.doc,.docx"></div>
+    </template>
+  </oc-resume>
+  <oc-consent>
+    <template shadowrootmode="open">
+      <input type="checkbox" id="c1"><label for="c1">I have read and accept the privacy notice</label>
+    </template>
+  </oc-consent>
+  <div id="step-2"></div>
+  <button type="button" id="next">Next</button>
+  <button type="submit" id="submit">Submit</button>
+</main>
+<script>
+  // Step two: screening questions are attached only after "Next", as on the live flow.
+  document.getElementById('next').addEventListener('click', () => {
+    const host = document.createElement('oc-screening-questions');
+    const root = host.attachShadow({ mode: 'open' });
+    root.innerHTML = `
+      <fieldset><legend>Are you legally authorized to work in the United States?</legend>
+        <label><input type="radio" name="auth" value="1"> Yes</label>
+        <label><input type="radio" name="auth" value="0"> No</label></fieldset>
+      <div class="field"><label for="why">Why do you want to join us?</label><textarea id="why"></textarea></div>
+      <fieldset><legend>Gender</legend>
+        <label><input type="radio" name="gender" value="m"> Male</label>
+        <label><input type="radio" name="gender" value="f"> Female</label></fieldset>`;
+    document.getElementById('step-2').appendChild(host);
+  });
+</script>
+</body></html>

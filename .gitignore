@@ -32,3 +32,8 @@ reports/
 interview-prep/
 writing-samples/
 voice-dna.md
+
+# --- apps/platform: database, resumes, screenshots, browser profile ---
+apps/platform/data/
+apps/platform/.env
+apps/platform/.worker.env

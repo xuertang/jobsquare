@@ -1,0 +1,10 @@
+# Everything personal: the database, resumes, confirmation screenshots and the
+# worker's browser profile. Never commit this directory.
+data/
+.env
+
+# Tooling state that the ruflo hooks write into whatever directory is current.
+.claude-flow/
+.swarm/
+ruvector.db
+.worker.env
