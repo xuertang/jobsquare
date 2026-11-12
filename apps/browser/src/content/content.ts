@@ -1,5 +1,11 @@
 import { deepQueryAll, isElementVisible, sleep } from '../lib/dom'
-import { collectFields, hostAllowed, isSearchControl } from '../lib/collect'
+import {
+  collectFields,
+  fieldOptions,
+  hostAllowed,
+  isSearchControl,
+  normalizeOptions,
+} from '../lib/collect'
 import {
   createEntryIndexer,
   getContext,
@@ -18,7 +24,12 @@ import {
   highlight,
   type Fillable,
 } from '../lib/filler'
-import { fillWidget, widgetHasValue, WIDGET_CONTROL_SELECTOR } from '../lib/widgetFiller'
+import {
+  fillWidget,
+  readWidgetOptions,
+  widgetHasValue,
+  WIDGET_CONTROL_SELECTOR,
+} from '../lib/widgetFiller'
 import {
   emptyFillResult,
   messageType,
@@ -148,6 +159,7 @@ async function runLocal({ fill, skipKeys }: RunOptions): Promise<LocalRun> {
     displayLabel: string
     status: 'fill' | 'skip' | 'unmatched'
     control: string
+    options?: string[]
   }) => {
     if (preview.items.length < 150) preview.items.push(item)
   }
@@ -155,6 +167,8 @@ async function runLocal({ fill, skipKeys }: RunOptions): Promise<LocalRun> {
     // Surface only real question-looking labels for the answer-memory UI.
     if (!displayLabel || displayLabel.length <= 6 || seenUnmatched.has(displayLabel)) return
     seenUnmatched.add(displayLabel)
+    // Choice fields carry their options so the answer editor can offer them.
+    const options = fieldOptions(field)
     pushItem({
       key: '',
       label: '',
@@ -162,6 +176,7 @@ async function runLocal({ fill, skipKeys }: RunOptions): Promise<LocalRun> {
       displayLabel,
       status: 'unmatched',
       control: controlName(field),
+      ...(options.length ? { options } : {}),
     })
     if (result.unmatched.length < 15) result.unmatched.push(displayLabel)
   }
@@ -298,6 +313,36 @@ async function runLocal({ fill, skipKeys }: RunOptions): Promise<LocalRun> {
     preview,
     rows: { education: indexer.rowCount('education'), experience: indexer.rowCount('experience') },
   }
+}
+
+/**
+ * Choices for one question, found by its page label — used by the answer
+ * editor so saving an answer for a dropdown offers the real options.
+ *
+ * Passive extraction (fieldOptions) covers native selects, radio groups and
+ * pre-rendered listboxes. react-select widgets build their menu only on open,
+ * so those are read by briefly opening the control. That mutation is why this
+ * runs on demand — when the person opens the editor for this field — and
+ * never during a scan.
+ */
+function findFieldByQuestion(question: string): Fillable | null {
+  for (const field of collectOwnFields()) {
+    if (field.type === 'file') continue
+    if (contextFor(field).displayLabel === question) return field
+  }
+  return null
+}
+
+async function optionsForField(field: Fillable): Promise<string[]> {
+  const passive = fieldOptions(field)
+  if (passive.length) return passive
+  if (field.type === 'widget') return normalizeOptions(await readWidgetOptions(field.el))
+  return []
+}
+
+async function optionsForQuestion(question: string): Promise<string[]> {
+  const field = findFieldByQuestion(question)
+  return field ? optionsForField(field) : []
 }
 
 // --- repeating sections: "Add another" expansion ------------------------------
@@ -470,6 +515,7 @@ async function ensureOverlay(): Promise<void> {
     onSaveAnswer: async (question, answer) => {
       await addCustomAnswer(question, answer)
     },
+    onLoadOptions: (question) => optionsForQuestion(question),
     onOpenOptions: () => {
       chrome.runtime.sendMessage({ type: 'GONGZUO_OPEN_OPTIONS' }).catch(() => {})
     },
@@ -532,6 +578,21 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       chrome.runtime.sendMessage(reply).catch(() => {})
     })
     return false
+  }
+
+  // Answer editor asking what a dropdown offers. Fields can live in any frame
+  // (Greenhouse is often embedded), so this is handled BEFORE the top-frame
+  // guard — but only the frame that actually owns the question replies, so the
+  // one real answer wins the response race instead of an empty one.
+  if (type === 'GONGZUO_FIELD_OPTIONS') {
+    const q = String((message as { question?: unknown }).question ?? '')
+    const field = q && frameAllowed() ? findFieldByQuestion(q) : null
+    if (!field) return false // stay silent; another frame may own it
+    void optionsForField(field).then(
+      (options) => sendResponse({ ok: options.length > 0, options }),
+      () => sendResponse({ ok: false, options: [] }),
+    )
+    return true // async response
   }
 
   if (!isTop) return false

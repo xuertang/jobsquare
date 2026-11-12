@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { fullName, type Profile } from '../lib/profile'
 import type { BlockedFrames, FillResult, PreviewItem, ScanPreview } from '../lib/messages'
 import { addCustomAnswer, getApplications, getProfile } from '../lib/storage'
-import { getActiveTab, openOptions, ping, runTree } from './api'
+import { fieldOptions, getActiveTab, openOptions, ping, runTree } from './api'
 import { Logo } from './Logo'
 import { ProfileTab } from './ProfileTab'
 
@@ -206,7 +206,13 @@ export function Popup() {
             )}
           </div>
           {fieldsOpen && scanPreview && (
-            <FieldBreakdown preview={scanPreview} onSaveAnswer={handleSaveAnswer} />
+            <FieldBreakdown
+              preview={scanPreview}
+              onSaveAnswer={handleSaveAnswer}
+              onLoadOptions={
+                tabId == null ? undefined : (q) => fieldOptions(tabId, q)
+              }
+            />
           )}
           {blocked && blocked.detected > 0 && (
             <div className="card card--warn">
@@ -281,30 +287,94 @@ function dedupe(items: string[]): string[] {
   return Array.from(new Set(items))
 }
 
+/** Control types that present a fixed list of choices. */
+function isChoiceControl(control?: string): boolean {
+  return !!control && /dropdown|radio|checkbox|select/i.test(control)
+}
+
 /** Inline "save this answer to my profile" editor for an unmatched question. */
 function AddAnswer({
   question,
+  options,
+  control,
+  onLoadOptions,
   onSave,
 }: {
   question: string
+  /** Page-offered choices when the field is a dropdown/radio; empty otherwise. */
+  options?: string[]
+  control?: string
+  /** Fetches choices for a dropdown whose menu only exists while open. */
+  onLoadOptions?: () => Promise<string[]>
   onSave: (question: string, answer: string) => Promise<void>
 }) {
   const [open, setOpen] = useState(false)
   const [answer, setAnswer] = useState('')
   const [saving, setSaving] = useState(false)
+  const [loaded, setLoaded] = useState<string[] | null>(null)
+  const [loading, setLoading] = useState(false)
+  const opts = loaded ?? options ?? []
+
+  /** Open the editor; for a choice field with no scanned options, fetch them
+   * now (the content script may briefly open the dropdown to read its menu). */
+  async function openEditor() {
+    setOpen(true)
+    if ((options?.length ?? 0) > 0 || loaded || !onLoadOptions || !isChoiceControl(control)) return
+    setLoading(true)
+    try {
+      setLoaded(await onLoadOptions())
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  /** Current picks, parsed from the box so typing and chips stay in agreement. */
+  const parts = answer.split('|').map((p) => p.trim()).filter(Boolean)
+  const chosen = new Set(parts.map((p) => p.toLowerCase()))
+  /** Toggle a choice; several join with " | ", the matcher's alternatives syntax. */
+  function toggle(opt: string) {
+    const next = [...parts]
+    const idx = next.findIndex((p) => p.toLowerCase() === opt.toLowerCase())
+    if (idx >= 0) next.splice(idx, 1)
+    else next.push(opt)
+    setAnswer(next.join(' | '))
+  }
 
   if (!open) {
     return (
-      <button className="frow__add" onClick={() => setOpen(true)}>
+      <button className="frow__add" onClick={() => void openEditor()}>
         + Add to profile
       </button>
     )
   }
   return (
     <div className="addanswer">
+      {loading && <p className="addanswer__optlabel">Reading the options…</p>}
+      {opts.length > 0 && (
+        <>
+          <p className="addanswer__optlabel">Options on this {control || 'field'}</p>
+          <div className="addanswer__opts">
+            {opts.map((opt) => (
+              <button
+                key={opt}
+                type="button"
+                className={
+                  'addanswer__opt' + (chosen.has(opt.toLowerCase()) ? ' addanswer__opt--on' : '')
+                }
+                onClick={() => toggle(opt)}
+                title={opt}
+              >
+                {opt}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
       <textarea
         className="addanswer__input"
-        placeholder="Your answer for this question…"
+        placeholder={
+          opts.length ? 'Pick an option above, or type your own…' : 'Your answer for this question…'
+        }
         value={answer}
         rows={2}
         autoFocus
@@ -342,9 +412,11 @@ function AddAnswer({
 function FieldRow({
   item,
   onSaveAnswer,
+  onLoadOptions,
 }: {
   item: PreviewItem
   onSaveAnswer: (question: string, answer: string) => Promise<void>
+  onLoadOptions?: (question: string) => Promise<string[]>
 }) {
   const [full, setFull] = useState(false)
   const clickable = item.value.length > 60
@@ -374,7 +446,17 @@ function FieldRow({
           )}
         </div>
       )}
-      {canAddAnswer && <AddAnswer question={item.displayLabel} onSave={onSaveAnswer} />}
+      {canAddAnswer && (
+        <AddAnswer
+          question={item.displayLabel}
+          options={item.options}
+          control={item.control}
+          onLoadOptions={
+            onLoadOptions ? () => onLoadOptions(item.displayLabel) : undefined
+          }
+          onSave={onSaveAnswer}
+        />
+      )}
       {isEmptyFileSlot && (
         <button className="frow__add" onClick={openOptions}>
           Upload in settings →
@@ -393,9 +475,11 @@ const BREAKDOWN_GROUPS: { status: PreviewItem['status']; title: string; hint?: s
 function FieldBreakdown({
   preview,
   onSaveAnswer,
+  onLoadOptions,
 }: {
   preview: ScanPreview
   onSaveAnswer: (question: string, answer: string) => Promise<void>
+  onLoadOptions?: (question: string) => Promise<string[]>
 }) {
   const groups = BREAKDOWN_GROUPS.map((g) => ({
     ...g,
@@ -419,6 +503,7 @@ function FieldBreakdown({
               key={`${g.status}:${item.key || item.displayLabel}:${idx}`}
               item={item}
               onSaveAnswer={onSaveAnswer}
+              onLoadOptions={onLoadOptions}
             />
           ))}
         </div>

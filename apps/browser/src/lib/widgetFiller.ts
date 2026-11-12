@@ -11,7 +11,7 @@ import { chooseOptionMulti, type MatchedField } from './fieldMatcher'
 import { deepQueryAll, isElementVisible, sleep } from './dom'
 import { setNativeValue } from './filler'
 
-const OPTION_SELECTOR = [
+export const OPTION_SELECTOR = [
   '[role="option"]',
   '[data-automation-id="promptOption"]',
   '[data-automation-id*="menuItem"]',
@@ -214,4 +214,43 @@ export function widgetHasValue(control: HTMLElement): boolean {
     if (text && !PLACEHOLDER_RE.test(text)) return true
   }
   return false
+}
+
+/**
+ * Read a custom dropdown's choices by briefly opening it, then restoring it.
+ *
+ * Needed because react-select (Greenhouse, Lever) builds its menu only on
+ * open — nothing is in the DOM to read passively. This therefore MUTATES the
+ * page (focus + click + Escape), so it is never called during a background
+ * scan: only when the person explicitly opens the answer editor for this
+ * field. Any pre-existing selection is left alone — we never click an option.
+ */
+export async function readWidgetOptions(control: HTMLElement): Promise<string[]> {
+  const doc = control.ownerDocument
+  const preExisting = new Set<Element>(
+    deepQueryAll<HTMLElement>(doc, OPTION_SELECTOR).filter(isElementVisible),
+  )
+  const input = innerInput(control)
+  const active = doc.activeElement as HTMLElement | null
+  try {
+    ;(input ?? control).focus()
+    pointerClick(control)
+    let options = await waitForOptions(preExisting, doc, 900)
+    if (options.length === 0) {
+      pressKey(input ?? control, 'ArrowDown')
+      options = await waitForOptions(preExisting, doc, 600)
+    }
+    return options.slice(0, 200).map(optionText)
+  } catch {
+    return []
+  } finally {
+    // Close without choosing anything, and hand focus back where it was.
+    try {
+      pressKey(input ?? control, 'Escape')
+      ;(input ?? control).blur()
+      if (active && active !== input && active !== control) active.focus?.()
+    } catch {
+      /* best effort */
+    }
+  }
 }

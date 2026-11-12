@@ -32,6 +32,13 @@ export interface PreviewItem {
   status: PreviewStatus
   /** Human name of the control: text, dropdown, radio, file, rich text… */
   control: string
+  /**
+   * For unmatched choice fields (dropdown / radio / custom dropdown): the
+   * options the page actually offers, so the answer editor can present them
+   * instead of an empty text box. Absent for text fields, and for widgets
+   * whose menu only exists once opened.
+   */
+  options?: string[]
 }
 
 export interface ScanPreview {
@@ -81,10 +88,24 @@ export interface RunTreeRequest {
   skipKeys?: string[]
 }
 
+/** Popup → background → content: choices for one question on the page. */
+export interface FieldOptionsRequest {
+  type: 'GONGZUO_FIELD_OPTIONS'
+  /** Tab to ask. Omitted from a content script (background uses sender.tab). */
+  tabId?: number
+  question: string
+}
+
+export interface FieldOptionsResponse {
+  ok: boolean
+  options: string[]
+}
+
 export type BackgroundRequest =
   | { type: 'GONGZUO_BADGE'; count: number }
   | { type: 'GONGZUO_OPEN_OPTIONS' }
   | RunTreeRequest
+  | FieldOptionsRequest
   | FrameAck
   | FrameResult
 
@@ -196,6 +217,17 @@ export function sanitizePreview(raw: unknown): ScanPreview {
             ? (i.status as PreviewStatus)
             : ('fill' as PreviewStatus),
           control: str(i.control, 24),
+          // Cross-frame payload: cap count and length, drop blanks entirely so
+          // an absent/garbage value never renders an empty chip row.
+          ...(Array.isArray(i.options) && i.options.length
+            ? {
+                options: i.options
+                  .filter((o): o is string => typeof o === 'string')
+                  .map((o) => str(o, 120))
+                  .filter(Boolean)
+                  .slice(0, 60),
+              }
+            : {}),
         }))
         .filter((i) => i.key || i.displayLabel)
         .slice(0, 150)

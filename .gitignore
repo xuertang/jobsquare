@@ -37,3 +37,7 @@ voice-dna.md
 apps/platform/data/
 apps/platform/.env
 apps/platform/.worker.env
+
+.claude-flow/
+.swarm/
+ruvector.db

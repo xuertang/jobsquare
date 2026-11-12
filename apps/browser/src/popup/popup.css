@@ -479,6 +479,41 @@ body {
   gap: 6px;
   margin-top: 4px;
 }
+.addanswer__optlabel {
+  margin: 0;
+  font-size: 10.5px;
+  color: var(--muted);
+}
+.addanswer__opts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  max-height: 120px;
+  overflow-y: auto;
+}
+.addanswer__opt {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text);
+  font: inherit;
+  font-size: 11px;
+  padding: 3px 9px;
+  cursor: pointer;
+  text-align: left;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.addanswer__opt:hover {
+  border-color: var(--accent);
+}
+.addanswer__opt--on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
 .addanswer__input {
   background: var(--surface-2);
   border: 1px solid var(--border);

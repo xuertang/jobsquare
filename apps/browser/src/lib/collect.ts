@@ -12,8 +12,8 @@ import {
   shadowContains,
   shadowParent,
 } from './dom'
-import type { Fillable } from './filler'
-import { WIDGET_CONTROL_SELECTOR } from './widgetFiller'
+import { radioLabel, type Fillable } from './filler'
+import { OPTION_SELECTOR, WIDGET_CONTROL_SELECTOR } from './widgetFiller'
 
 export const FILLABLE_INPUT_TYPES = new Set([
   'text',
@@ -120,6 +120,74 @@ export function isSearchControl(el: HTMLElement): boolean {
   if (el.closest('[role="search"]')) return true
   if (el.getAttribute('role') === 'searchbox') return true
   return el.localName === 'input' && (el as HTMLInputElement).type === 'search'
+}
+
+const MAX_OPTIONS = 60
+/** Placeholder rows ("Select…", "-- choose --") are prompts, not answers. */
+const PLACEHOLDER_OPTION = /^\s*(?:[-–—]+|select|choose|please\s|pick\s|none\b|\s)*(?:\.{3}|…)?\s*$/i
+const PLACEHOLDER_PREFIX = /^\s*(?:select|choose|please|pick|start typing|search)\b/i
+
+function cleanOption(text: string): string {
+  return text.replace(/\s+/g, ' ').trim()
+}
+
+function usableOption(text: string): boolean {
+  if (!text || text.length > 120) return false
+  return !PLACEHOLDER_OPTION.test(text) && !PLACEHOLDER_PREFIX.test(text)
+}
+
+/**
+ * Collapse whitespace, drop placeholder prompts and over-long entries, dedupe
+ * case-insensitively, and cap the list. Split out from fieldOptions so it is
+ * testable without a DOM.
+ */
+export function normalizeOptions(raw: string[]): string[] {
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const text of raw.map(cleanOption)) {
+    if (!usableOption(text) || seen.has(text.toLowerCase())) continue
+    seen.add(text.toLowerCase())
+    out.push(text)
+    if (out.length >= MAX_OPTIONS) break
+  }
+  return out
+}
+
+/**
+ * The choices a person could actually pick for a choice-style field, in DOM
+ * order — used by the review UI so saving an answer for a dropdown offers the
+ * real options instead of a blank box.
+ *
+ * Strictly read-only: it never clicks, focuses, or types, so a custom widget
+ * contributes options only when its menu already exists in the DOM (the
+ * standard APG combobox keeps a display:none listbox). Widgets that build
+ * their menu on open return [] rather than being poked into revealing it.
+ */
+export function fieldOptions(field: Fillable): string[] {
+  let raw: string[] = []
+  switch (field.type) {
+    case 'select':
+      raw = Array.from(field.el.options)
+        .filter((o) => !o.disabled)
+        .map((o) => o.textContent ?? o.value)
+      break
+    case 'radio':
+      raw = field.els.map((r) => radioLabel(r))
+      break
+    case 'widget': {
+      // Only this control's own subtree — a page-level option sweep would pull
+      // in every other open menu's items.
+      const own = deepQueryAll<HTMLElement>(field.el, OPTION_SELECTOR)
+      const inShadow = field.el.shadowRoot
+        ? deepQueryAll<HTMLElement>(field.el.shadowRoot, OPTION_SELECTOR)
+        : []
+      raw = [...own, ...inShadow].map((o) => o.textContent ?? '')
+      break
+    }
+    default:
+      return []
+  }
+  return normalizeOptions(raw)
 }
 
 /** Group raw form controls into logical fields (radio groups collapse to one). */

@@ -13,6 +13,7 @@ import asyncio
 import json
 import random
 import re
+import time
 import urllib.parse
 from datetime import datetime, timedelta, timezone
 from html import unescape
@@ -1254,10 +1255,41 @@ async def fetch_amazon(client: httpx.AsyncClient, source: dict) -> list[Job]:
 # instead of failing the poll.
 # --------------------------------------------------------------------------
 _LI_GUEST = "https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search"
-# The guest endpoint rate-limits per-IP, hard. Every linkedin source in a run
-# shares this lock so pages are fetched one at a time instead of bursting the
-# host with `concurrency` parallel sources.
+# The guest endpoint rate-limits per-IP, hard, and the budget is shared by
+# EVERY linkedin source in a run. So the throttle state is global too:
+#   _LI_LOCK           one request at a time, never `concurrency` in parallel
+#   _LI_SPACING        gap between consecutive hits
+#   _LI_COOLDOWN_UNTIL a 429 pauses the whole group, not just the source that
+#                      hit it — otherwise each remaining source marches into
+#                      its own 429 and the back half of the run returns nothing
 _LI_LOCK = asyncio.Lock()
+_LI_SPACING = 2.5
+_LI_BACKOFFS = (20.0, 60.0, 150.0)
+_LI_COOLDOWN_UNTIL = 0.0
+
+
+async def _li_get(client: httpx.AsyncClient, params: dict, attempt: int) -> httpx.Response:
+    """One serialized, cooldown-aware GET against the guest endpoint.
+
+    Holding the lock across the wait is deliberate: the point is to stop the
+    whole group while the limit recovers. A poll runs every 12h, so minutes of
+    patience here are free compared with losing a source's data for the cycle.
+    """
+    global _LI_COOLDOWN_UNTIL
+    async with _LI_LOCK:
+        wait = _LI_COOLDOWN_UNTIL - time.monotonic()
+        if wait > 0:
+            await asyncio.sleep(wait)
+        r = await client.get(_LI_GUEST, params=params,
+                             headers={"User-Agent": _BROWSER_UA,
+                                      "Accept-Language": "en-US,en;q=0.9"},
+                             timeout=30)
+        if r.status_code in (429, 999):
+            base = _LI_BACKOFFS[min(attempt, len(_LI_BACKOFFS) - 1)]
+            _LI_COOLDOWN_UNTIL = time.monotonic() + base * (1 + random.uniform(0, 0.3))
+        else:
+            await asyncio.sleep(_LI_SPACING)
+        return r
 _BROWSER_UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
                "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36")
 
@@ -1292,14 +1324,16 @@ def parse_linkedin(company: str, page: str) -> list[Job]:
 async def fetch_linkedin(client: httpx.AsyncClient, source: dict) -> list[Job]:
     """LinkedIn jobs-guest scoped to a company id. Config: company (label),
     company_id (REQUIRED, the numeric id in linkedin.com/company URLs/f_C),
-    query (keywords), max_pages (default 6). Pages hold 10 cards (observed
-    2026-07-31; the endpoint has served 25 in the past — stride must match
-    what a page actually returns, so it uses the running count)."""
+    query (keywords), max_pages (default 3 => ~30 newest roles). Pages hold 10
+    cards (observed 2026-07-31; the endpoint has served 25 in the past — stride
+    must match what a page actually returns, so it uses the running count).
+    The default is deliberately small: every page spends shared rate-limit
+    budget, and the max_age filter discards most of a deep crawl anyway."""
     company = source.get("company", "linkedin")
     cid = source.get("company_id")
     if not cid:
         raise RuntimeError("linkedin: company_id (numeric LinkedIn company id) is required")
-    max_pages = int(source.get("max_pages", 6))
+    max_pages = int(source.get("max_pages", 3))
 
     jobs: list[Job] = []
     seen: set[str] = set()
@@ -1307,16 +1341,26 @@ async def fetch_linkedin(client: httpx.AsyncClient, source: dict) -> list[Job]:
         params = {"f_C": str(cid), "start": str(len(jobs))}
         if source.get("query"):
             params["keywords"] = source["query"]
-        async with _LI_LOCK:
-            r = await client.get(_LI_GUEST, params=params,
-                                 headers={"User-Agent": _BROWSER_UA,
-                                          "Accept-Language": "en-US,en;q=0.9"},
-                                 timeout=30)
-            await asyncio.sleep(1.0)   # spacing held while the lock is ours
+        # Retry a throttled page a few times, each attempt waiting out (and
+        # extending) the group-wide cooldown. 400 is a real bad request, so it
+        # is never retried.
+        r = await _li_get(client, params, 0)
+        for attempt in range(1, len(_LI_BACKOFFS) + 1):
+            if r.status_code not in (429, 999):
+                break
+            r = await _li_get(client, params, attempt)
         if r.status_code in (400, 429, 999):
-            # Rate-limited. Returning what we have (possibly nothing) keeps one
-            # throttled company from failing the whole poll; the next run
-            # re-reads the same window, so nothing is permanently missed.
+            # Rate-limited (the guest endpoint answers 429 with a ~24KB notice
+            # page, no job cards). Partial results are kept so a mid-run
+            # throttle loses nothing — the next run re-reads the same window.
+            # But a source throttled from its FIRST page would otherwise return
+            # an empty list, which is indistinguishable from a board with no
+            # matching roles; that silent zero is worse than a logged failure,
+            # so say so out loud.
+            if not jobs:
+                raise RuntimeError(
+                    f"linkedin: rate-limited (HTTP {r.status_code}) before any "
+                    f"results for {company} (f_C={cid}); no data this run")
             break
         r.raise_for_status()
         fresh = [j for j in parse_linkedin(company, r.text) if j.external_id not in seen]

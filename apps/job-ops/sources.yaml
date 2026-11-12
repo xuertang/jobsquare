@@ -185,7 +185,13 @@ sources:
   - { ats: ashby,      company: amplitude }    # Greenhouse board 404s; moved to Ashby — verified 2026-10-02
   - { ats: greenhouse, company: mixpanel }
   - { ats: greenhouse, company: twilio }
-  - { ats: greenhouse, company: hubspotjobs }   # board is "hubspotjobs"; plain "hubspot" 200s with 0 jobs
+  # HubSpot has no Greenhouse board any more: "hubspot" went empty (fixed to
+  # "hubspotjobs" 2026-08-13), and "hubspotjobs" now 404s too — every token
+  # tried 404s, and hubspot.com/careers/jobs renders "No jobs are currently
+  # listed" while their engineering page advertises active hiring. So the
+  # board moved somewhere not yet public. LinkedIn carries the real roles.
+  # Re-check for a shared ATS later. Verified 2026-10-12.
+  - { ats: linkedin,  company: hubspot, company_id: 68529, query: "software engineer", max_pages: 2 }
   - { ats: greenhouse, company: klaviyo }
   - { ats: ashby,      company: clickup }
   - { ats: ashby,      company: "Superhuman Platform Inc" }   # Grammarly — merged with Superhuman; one board serves both brands (grammarly GH board is dead)

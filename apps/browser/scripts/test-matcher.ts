@@ -9,6 +9,7 @@ import {
   type FieldContext,
   type SpecCategory,
 } from '../src/lib/fieldMatcher'
+import { normalizeOptions } from '../src/lib/collect'
 import { formatForInput, parseFreeDate } from '../src/lib/dates'
 import { emptyProfile, type Profile } from '../src/lib/profile'
 
@@ -234,6 +235,43 @@ expectKey('Disability Status', 'disabilityStatus')
 expectKey('Disability Status', null, { disabled: ['disability'] })
 expectKey('Desired Salary', null, { disabled: ['salary'] })
 expectKey('First Name', 'firstName', { disabled: ['eeo', 'disability', 'salary'] })
+
+// --- dropdown option extraction (answer editor) -----------------------------
+function expectOptions(name: string, raw: string[], expected: string[]) {
+  const got = normalizeOptions(raw)
+  if (JSON.stringify(got) === JSON.stringify(expected)) pass++
+  else {
+    fail++
+    console.log(`✗ options "${name}": expected ${JSON.stringify(expected)}, got ${JSON.stringify(got)}`)
+  }
+}
+// Placeholder prompts are not answers.
+expectOptions('drops placeholders', ['Select…', 'Yes', 'No'], ['Yes', 'No'])
+expectOptions('drops dashes/empties', ['--', '', '   ', 'Remote', '—'], ['Remote'])
+expectOptions('drops "Please select"', ['Please select one', 'Male', 'Female'], ['Male', 'Female'])
+expectOptions('drops typeahead prompts', ['Start typing...', 'Search', 'Canada'], ['Canada'])
+// Real multi-word EEO wording survives intact — it's what gets stored.
+expectOptions(
+  'keeps federal phrasings',
+  ['Please select', 'I am not a protected veteran', "I don't wish to answer"],
+  ['I am not a protected veteran', "I don't wish to answer"],
+)
+expectOptions('collapses whitespace', ['  Bay   Area\n(Remote) '], ['Bay Area (Remote)'])
+expectOptions('dedupes case-insensitively', ['Yes', 'yes', 'YES', 'No'], ['Yes', 'No'])
+expectOptions('drops over-long entries', ['Yes', 'x'.repeat(130)], ['Yes'])
+{
+  // Cap at 60 so a country list can't bloat the cross-frame payload.
+  const many = Array.from({ length: 200 }, (_, i) => `Country ${i}`)
+  const got = normalizeOptions(many)
+  if (got.length === 60 && got[0] === 'Country 0') pass++
+  else {
+    fail++
+    console.log(`✗ options cap: got ${got.length}`)
+  }
+}
+// An option whose text merely STARTS with a real word must survive; only
+// prompt-leading words are dropped.
+expectOptions('keeps "Selected by..." style text', ['Selective Service', 'Yes'], ['Selective Service', 'Yes'])
 
 // --- file slots -------------------------------------------------------------
 function expectFile(label: string, expected: string | null) {

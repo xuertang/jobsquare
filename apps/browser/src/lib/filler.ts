@@ -65,7 +65,7 @@ function fillSelect(el: HTMLSelectElement, match: MatchedField): boolean {
   return true
 }
 
-function radioLabel(radio: HTMLInputElement): string {
+export function radioLabel(radio: HTMLInputElement): string {
   const labels = radio.labels ? Array.from(radio.labels) : []
   const fromLabel = labels.map((l) => l.textContent ?? '').join(' ').trim()
   if (fromLabel) return fromLabel

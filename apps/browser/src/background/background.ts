@@ -11,6 +11,8 @@ import {
   type RunTreeRequest,
   type RunTreeResponse,
   type ScanPreview,
+  type FieldOptionsRequest,
+  type FieldOptionsResponse,
 } from '../lib/messages'
 import { getSettings, seedIfEmpty } from '../lib/storage'
 
@@ -180,6 +182,24 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return false
     }
     runTree(req, tabId, sendResponse)
+    return true // async response
+  }
+
+  if (type === 'GONGZUO_FIELD_OPTIONS') {
+    const req = message as FieldOptionsRequest
+    const tabId = req.tabId ?? sender.tab?.id
+    if (tabId == null) {
+      sendResponse({ ok: false, options: [] } satisfies FieldOptionsResponse)
+      return false
+    }
+    // The field may live in any frame, so ask the tab and take the first
+    // frame that recognizes the question.
+    chrome.tabs
+      .sendMessage(tabId, { type: 'GONGZUO_FIELD_OPTIONS', question: req.question })
+      .then((res: FieldOptionsResponse | undefined) =>
+        sendResponse({ ok: !!res?.ok, options: res?.options ?? [] } satisfies FieldOptionsResponse),
+      )
+      .catch(() => sendResponse({ ok: false, options: [] } satisfies FieldOptionsResponse))
     return true // async response
   }
 

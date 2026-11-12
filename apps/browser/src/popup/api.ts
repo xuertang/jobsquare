@@ -4,6 +4,8 @@ import {
   type ContentResponse,
   type RunTreeRequest,
   type RunTreeResponse,
+  type FieldOptionsRequest,
+  type FieldOptionsResponse,
 } from '../lib/messages'
 
 export interface TabState {
@@ -40,6 +42,21 @@ export async function runTree(tabId: number, fill: boolean): Promise<RunTreeResp
     )
   } catch {
     return { ok: false, result: emptyFillResult(), preview: { items: [] } }
+  }
+}
+
+/**
+ * Choices for one question on the page, for the answer editor. Resolved by the
+ * content script, which may briefly open a custom dropdown to read its menu,
+ * so this is only called when the person opens the editor for that field.
+ */
+export async function fieldOptions(tabId: number, question: string): Promise<string[]> {
+  const req: FieldOptionsRequest = { type: 'GONGZUO_FIELD_OPTIONS', tabId, question }
+  try {
+    const res = (await chrome.runtime.sendMessage(req)) as FieldOptionsResponse | undefined
+    return res?.options ?? []
+  } catch {
+    return []
   }
 }
 
